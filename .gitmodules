@@ -1,0 +1,3 @@
+[submodule "ccs_dlconfig"]
+	path = ccs_dlconfig
+	url = git@github.com:ClearCreekSci/ccs_dlconfig.git
