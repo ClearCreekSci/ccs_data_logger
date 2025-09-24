@@ -1,5 +1,5 @@
 # This directory exists to facilitate debugging in-situ and the creation of the install zip file.
-# Since git keeps track of content, not directories, we put a .gitignore file in hear and ignore
+# Since git keeps track of content, not directories, we put a .gitignore file in here and ignore
 # (from git's point of view) everything else in the directory. In a regular installation, this
 # plugins directory contains the Python objects that gather sensor data. During development, I
 # generally make links to the source files in their various directories in this directory so

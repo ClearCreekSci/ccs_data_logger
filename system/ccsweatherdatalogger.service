@@ -1,0 +1,14 @@
+[Unit]
+Description=Clear Creek Scientific Weather Data Logger
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+WorkingDirectory=/opt/ccs/WeatherDataLogger
+ExecStart=/opt/ccs/venv_weatherdatalogger/bin/python3 /opt/ccs/WeatherDataLogger/data_logger.py
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=default.target
+
