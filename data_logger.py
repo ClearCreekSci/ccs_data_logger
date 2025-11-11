@@ -107,7 +107,7 @@ def run(args):
     global g_config
 
     try:
-        g_config = config.Settings(raise_exceptions=True)
+        g_config = config.Settings(args.config,raise_exceptions=True)
         args.period = g_config.frequency
         args.events = g_config.package_rate
     except FileNotFoundError as e:
@@ -128,6 +128,7 @@ def run(args):
 
 if '__main__' == __name__:
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-c','--config',required=True,help='Path to config file')
     arg_parser.add_argument('-d','--destination',required=True,help='Directory into which data is stored')
     arg_parser.add_argument('-p','--period',type=int,help='Number of minutes between collection events, default is 30')
     arg_parser.add_argument('-e','--events',type=int,help='Number of collection events to store in each file, default is 48')
