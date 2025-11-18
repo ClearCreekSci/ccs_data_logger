@@ -5,7 +5,7 @@ StartLimitBurst=5
 
 [Service]
 WorkingDirectory=/opt/ccs/WeatherDataLogger
-ExecStart=python /opt/ccs/WeatherDataLogger/data_logger.py -d /opt/ccs/WeatherDataLogger/data
+ExecStart=python /opt/ccs/WeatherDataLogger/data_logger.py -d /opt/ccs/WeatherDataLogger/data -c /opt/ccs/WeatherDataLogger/settings.cfg
 Restart=on-failure
 RestartSec=10s
 
