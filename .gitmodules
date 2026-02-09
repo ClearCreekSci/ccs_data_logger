@@ -1,3 +1,6 @@
 [submodule "ccs_dlconfig"]
 	path = ccs_dlconfig
 	url = git@github.com:ClearCreekSci/ccs_dlconfig.git
+[submodule "ccs_base"]
+	path = ccs_base
+	url = git@github.com:ClearCreekSci/ccs_base.git
