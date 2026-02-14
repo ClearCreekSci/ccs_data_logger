@@ -22,7 +22,7 @@ import os
 import argparse
 import logging
 import time
-
+from sugarcube import sugarcube
 from importlib import import_module
 import datetime
 
@@ -40,10 +40,14 @@ DEFAULT_ROLLOVER_COUNT              = 48
 COLLECT_SUFFIX                      = '_ccs_logger.csv'
 LOG_SUFFIX                          = '_ccs_data_logger.log'
 
+PM_PISUGAR2        = 'pisugar2'
+
+TAG_DEVICE         = 'device'
 TAG_PERIOD         = 'period'
 TAG_PLUGIN         = 'plugin'
 TAG_PLUGINS        = 'plugins'
 TAG_PLUGIN_CONFIG  = 'plugin-config'
+TAG_POWER          = 'power'
 TAG_ROLLOVER_COUNT = 'rollover-count'
 TAG_SCHEDULE       = 'schedule'
 
@@ -78,6 +82,7 @@ class LoggerSettings(config.Settings):
         super().__init__()
         self.plugins = list()
         self.log_path = None
+        self.power_manager = None
 
     def read(self,path):
         super().read(path)
@@ -102,6 +107,16 @@ class LoggerSettings(config.Settings):
             if None is not config_node:
                 new_plugin.config = et.tostring(config_node).decode('utf-8') 
             self.plugins.append(new_plugin)
+
+        power = self.root.find(TAG_POWER)
+        if None is not power:
+            device = power.find(TAG_DEVICE)
+            if None is not device:
+                self.power_manager = device.text.strip()
+
+            period = power.find(TAG_PERIOD)
+            if None is not period:
+                self.power_period = int(period.text.strip())
 
 class CcsLogger(object):
 
@@ -187,9 +202,24 @@ def run(args):
     global g_done
     global g_config
 
-    plugin_error_count = 0
+    power_manager = None
     g_config = LoggerSettings()
     g_config.read(args.config)
+
+    if None is not g_config.power_manager:
+        if g_config.power_manager == PM_PISUGAR2:
+            try:
+                power_manager = sugarcube.Connection()
+            except ConnectionRefusedError:
+                logmsg(NAME,'PiSugar configured, but not found')
+                power_manager = None
+            except sugarcube.SugarDisconnected:
+                logmsg(NAME,'PiSugar configured, but not available')
+                power_manager = None
+
+            if None is g_config.power_period:
+                logmsg(NAME,'Power manager specified, but no period given')
+                power_manager = None
 
     data_logger = CcsLogger()
     total_count = 0
@@ -205,6 +235,9 @@ def run(args):
                 if error_count < MAX_PLUGIN_REPORTED_ERRORS:
                     logmsg(NAME,'Plugin is not configured properly: ' + plugin.get_label())
                     error_count += 1
+
+        if None is not power_manager:
+            power_manager.sleep(g_config.power_period) 
         # 60 seconds per tick
         time.sleep(60)
 

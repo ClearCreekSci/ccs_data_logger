@@ -4,3 +4,6 @@
 [submodule "ccs_base"]
 	path = ccs_base
 	url = git@github.com:ClearCreekSci/ccs_base.git
+[submodule "sugarcube"]
+	path = sugarcube
+	url = git@github.com:ClearCreekSci/sugarcube.git
