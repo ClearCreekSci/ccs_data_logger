@@ -42,8 +42,8 @@ LOG_SUFFIX                          = '_ccs_data_logger.log'
 
 PM_PISUGAR2        = 'pisugar2'
 
-TAG_DEVICE         = 'device'
 TAG_PERIOD         = 'period'
+TAG_MANAGER        = 'manager'
 TAG_PLUGIN         = 'plugin'
 TAG_PLUGINS        = 'plugins'
 TAG_PLUGIN_CONFIG  = 'plugin-config'
@@ -51,18 +51,37 @@ TAG_POWER          = 'power'
 TAG_ROLLOVER_COUNT = 'rollover-count'
 TAG_SCHEDULE       = 'schedule'
 
-MAX_PLUGIN_REPORTED_ERRORS = 4
+INFO_MSG               = 0
+ERROR_MSG              = 1
+MAX_REPORTED_ERRORS    = 20
+MAX_REPORTED_INFO_MSGS = 20
+TOO_MANY_ERRORS        = 'Too many errors to report...'
+TOO_MANY_INFO_MSGS     = 'Too many non-error messages to report...'
 
 g_done = False
+g_collect = True
 g_config = None
+g_info_count = 0
+g_error_count = 0
 
-def logmsg(tag,msg):
+# level is 0 for information, anything else is error
+def logmsg(tag,msg,level=0):
     global g_config
+    global g_error_count
     if hasattr(g_config,'log_path') and None is not g_config.log_path:
-        with open(g_config.log_path,'a') as fd:
-            ts = datetime.datetime.now(datetime.UTC)
-            s = ts.strftime('%Y-%m-%d %I:%M:%S ') + '[' + tag + '] ' + msg + '\n'
-            fd.write(s)
+        if (level == 0 and g_info_count <= MAX_REPORTED_INFO_MSGS) or (g_error_count <= MAX_REPORTED_ERRORS):
+            with open(g_config.log_path,'a') as fd:
+                ts = datetime.datetime.now(datetime.UTC)
+                s = ts.strftime('%Y-%m-%d %I:%M:%S ') + '[' + tag + '] ' + msg + '\n'
+                fd.write(s)
+                if level != 0 and (g_error_count == MAX_REPORTED_ERRORS):
+                    fd.write(TOO_MANY_ERRORS)
+                if level == 0 and (g_info_count == MAX_REPORTED_INFO_MSGS):
+                    fd.write(TOO_MANY_INFO_MSGS)
+            if level == 0:
+                g_info_count += 1
+            else:
+                g_error_count += 1
 
 class PluginMeta(object):
 
@@ -110,9 +129,9 @@ class LoggerSettings(config.Settings):
 
         power = self.root.find(TAG_POWER)
         if None is not power:
-            device = power.find(TAG_DEVICE)
-            if None is not device:
-                self.power_manager = device.text.strip()
+            man = power.find(TAG_MANAGER)
+            if None is not man:
+                self.power_manager = man.text.strip()
 
             period = power.find(TAG_PERIOD)
             if None is not period:
@@ -157,11 +176,11 @@ class CcsLogger(object):
                                     obj.set_config(plugin_meta.config)
                             obj.error_count = 0
                             self.plugins.append(obj)
-                            logmsg(NAME,'Loaded plugin: ' + f)
+                            logmsg(NAME,'Loaded plugin: ' + f,INFO_MSG)
                         else:
-                            logmsg(NAME,'Plugin has no load function: ' + f)
+                            logmsg(NAME,'Plugin has no load function: ' + f,ERROR_MSG)
                     except Exception as ex:
-                        logmsg(NAME,'Failed to load plugin (' + f + '): ' + str(ex))
+                        logmsg(NAME,'Failed to load plugin (' + f + '): ' + str(ex),ERROR_MSG)
 
 
     def collect(self,plugin,plugin_meta):
@@ -198,6 +217,24 @@ class CcsLogger(object):
         name = ts.strftime('%Y%m%d_%I%M%S') + '_' + label + COLLECT_SUFFIX
         return os.path.join(g_config.data_dir,name)
 
+def get_pisugar2_manager(cfg):
+    power_manager = None
+    try:
+        power_manager = sugarcube.Connection()
+        if None is not power_manager:
+            if hasattr(power_manager,'set_log_callback'):
+                power_manager.set_log_callback(logmsg)
+    except ConnectionRefusedError:
+        logmsg(NAME,'PiSugar configured, but not found',ERROR_MSG)
+    except sugarcube.SugarDisconnected:
+        logmsg(NAME,'PiSugar configured, but not available',ERROR_MSG)
+
+    if None is cfg.power_period:
+        logmsg(NAME,'PiSugar power manager is missing "period" element in configuration file',ERROR_MSG)
+
+    return power_manager
+
+
 def run(args):
     global g_done
     global g_config
@@ -208,38 +245,32 @@ def run(args):
 
     if None is not g_config.power_manager:
         if g_config.power_manager == PM_PISUGAR2:
-            try:
-                power_manager = sugarcube.Connection()
-            except ConnectionRefusedError:
-                logmsg(NAME,'PiSugar configured, but not found')
-                power_manager = None
-            except sugarcube.SugarDisconnected:
-                logmsg(NAME,'PiSugar configured, but not available')
-                power_manager = None
-
-            if None is g_config.power_period:
-                logmsg(NAME,'Power manager specified, but no period given')
-                power_manager = None
+            power_manager = get_pisugar2_manager(g_config)
+        else:
+            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + plugin.get_label()
+            logmsg(NAME,msg,INFO_MSG)
 
     data_logger = CcsLogger()
     total_count = 0
-    while False == g_done:
-        for plugin in data_logger.plugins:
-            meta = data_logger.get_plugin_metadata(plugin.plugin_name)
-            if None is not meta:
-                meta.ticks += 1
-                if meta.ticks >= meta.period:
-                    data_logger.collect(plugin,meta)
-                    meta.ticks = 0
-            else:
-                if error_count < MAX_PLUGIN_REPORTED_ERRORS:
-                    logmsg(NAME,'Plugin is not configured properly: ' + plugin.get_label())
-                    error_count += 1
 
-        if None is not power_manager:
-            power_manager.sleep(g_config.power_period) 
-        # 60 seconds per tick
-        time.sleep(60)
+    if None is not power_manager:
+        for plugin in data_logger.plugins:
+            data_logger.collect(plugin,meta)
+        power_manager.sleep(g_config.power_period) 
+    else:
+        while True == g_collect:
+            for plugin in data_logger.plugins:
+                meta = data_logger.get_plugin_metadata(plugin.plugin_name)
+                if None is not meta:
+                    meta.ticks += 1
+                    if meta.ticks >= meta.period:
+                        data_logger.collect(plugin,meta)
+                        meta.ticks = 0
+                else:
+                    msg = 'Plugin is missing metadata in configuration file: ' + plugin.get_label()
+                    logmsg(NAME,msg,ERROR_MSG)
+            # 60 seconds per tick
+            time.sleep(60)
 
 
 if '__main__' == __name__:
@@ -248,7 +279,8 @@ if '__main__' == __name__:
     arg_parser.add_argument('-p','--period',type=int,help='Number of minutes between collection events, default is 30')
     arg_parser.add_argument('-e','--events',type=int,help='Number of collection events to store in each file, default is 48')
     args = arg_parser.parse_args()
-    run(args)
+    while False == g_done:
+        run(args)
 
 
 
