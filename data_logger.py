@@ -37,7 +37,7 @@ SHARED_OBJECT_DIR                   = 'plugins'
 # a one day default file rollover...
 DEFAULT_COLLECT_PERIOD              = 30
 DEFAULT_ROLLOVER_COUNT              = 48
-COLLECT_SUFFIX                      = '_ccs_logger.csv'
+COLLECT_SUFFIX                      = '_ccs_data_logger.csv'
 LOG_SUFFIX                          = '_ccs_data_logger.log'
 
 PM_PISUGAR2        = 'pisugar2'
@@ -67,6 +67,7 @@ g_error_count = 0
 # level is 0 for information, anything else is error
 def logmsg(tag,msg,level=0):
     global g_config
+    global g_info_count
     global g_error_count
     if hasattr(g_config,'log_path') and None is not g_config.log_path:
         if (level == 0 and g_info_count <= MAX_REPORTED_INFO_MSGS) or (g_error_count <= MAX_REPORTED_ERRORS):
@@ -174,7 +175,6 @@ class CcsLogger(object):
                             if None is not plugin_meta:
                                 if hasattr(obj,'set_config'):
                                     obj.set_config(plugin_meta.config)
-                            obj.error_count = 0
                             self.plugins.append(obj)
                             logmsg(NAME,'Loaded plugin: ' + f,INFO_MSG)
                         else:
@@ -214,8 +214,8 @@ class CcsLogger(object):
     def get_collect_file_path(self,label):
         global g_config
         ts = datetime.datetime.now(datetime.UTC)
-        name = ts.strftime('%Y%m%d_%I%M%S') + '_' + label + COLLECT_SUFFIX
-        return os.path.join(g_config.data_dir,name)
+        name = ts.strftime('%Y%m%d_%I%M%S') + COLLECT_SUFFIX
+        return os.path.join(g_config.csv_dir,name)
 
 def get_pisugar2_manager(cfg):
     power_manager = None
@@ -238,6 +238,8 @@ def get_pisugar2_manager(cfg):
 def run(args):
     global g_done
     global g_config
+
+    first_time = True
 
     power_manager = None
     g_config = LoggerSettings()
@@ -262,10 +264,11 @@ def run(args):
             for plugin in data_logger.plugins:
                 meta = data_logger.get_plugin_metadata(plugin.plugin_name)
                 if None is not meta:
-                    meta.ticks += 1
-                    if meta.ticks >= meta.period:
+                    if meta.ticks >= meta.period or first_time:
                         data_logger.collect(plugin,meta)
                         meta.ticks = 0
+                    meta.ticks += 1
+                    first_time = False
                 else:
                     msg = 'Plugin is missing metadata in configuration file: ' + plugin.get_label()
                     logmsg(NAME,msg,ERROR_MSG)
