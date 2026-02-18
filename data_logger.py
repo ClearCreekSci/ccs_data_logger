@@ -31,7 +31,7 @@ from ccs_dlconfig import config
 import xml.etree.ElementTree as et
 
 NAME                                = 'data_logger'
-SHARED_OBJECT_DIR                   = 'plugins'
+SENSOR_MODULE_DIR                   = 'sensormods'
 
 # For the default period of 30 minutes between events, collecting 48 events gives
 # a one day default file rollover...
@@ -40,16 +40,16 @@ DEFAULT_ROLLOVER_COUNT              = 48
 COLLECT_SUFFIX                      = '_ccs_data_logger.csv'
 LOG_SUFFIX                          = '_ccs_data_logger.log'
 
-PM_PISUGAR2        = 'pisugar2'
+PM_PISUGAR2           = 'pisugar2'
 
-TAG_PERIOD         = 'period'
-TAG_MANAGER        = 'manager'
-TAG_PLUGIN         = 'plugin'
-TAG_PLUGINS        = 'plugins'
-TAG_PLUGIN_CONFIG  = 'plugin-config'
-TAG_POWER          = 'power'
-TAG_ROLLOVER_COUNT = 'rollover-count'
-TAG_SCHEDULE       = 'schedule'
+TAG_PERIOD            = 'period'
+TAG_MANAGER           = 'manager'
+TAG_SENSOR            = 'sensor'
+TAG_SENSORS           = 'sensors'
+TAG_SENSOR_CONFIG     = 'sensor-config'
+TAG_POWER             = 'power'
+TAG_ROLLOVER_COUNT    = 'rollover-count'
+TAG_SCHEDULE          = 'schedule'
 
 INFO_MSG               = 0
 ERROR_MSG              = 1
@@ -84,7 +84,7 @@ def logmsg(tag,msg,level=0):
             else:
                 g_error_count += 1
 
-class PluginMeta(object):
+class SensorSettings(object):
 
     def __init__(self):
         self.name = None
@@ -100,7 +100,7 @@ class LoggerSettings(config.Settings):
 
     def __init__(self):
         super().__init__()
-        self.plugins = list()
+        self.sensor_settings = list()
         self.log_path = None
         self.power_manager = None
 
@@ -113,20 +113,20 @@ class LoggerSettings(config.Settings):
         else:
             self.log_path = '/tmp/data_logger.log'
 
-        plugins = self.root.find(TAG_PLUGINS)
-        for plugin_node in plugins:
-            new_plugin = PluginMeta() 
-            new_plugin.name = plugin_node.get('name')
-            schedule = plugin_node.find(TAG_SCHEDULE)
+        sensors = self.root.find(TAG_SENSORS)
+        for sensor_node in sensors:
+            new_sensor_settings = SensorSettings() 
+            new_sensor_settings.name = sensor_node.get('name')
+            schedule = sensor_node.find(TAG_SCHEDULE)
             period_node = schedule.find(TAG_PERIOD)
-            new_plugin.period = int(period_node.text.strip())
+            new_sensor_settings.period = int(period_node.text.strip())
             rcount = schedule.find(TAG_ROLLOVER_COUNT)
             if None is not rcount:
-                new_plugin.rollover_max = int(rcount.text.strip())
-            config_node = plugin_node.find(TAG_PLUGIN_CONFIG)
+                new_sensor_settings.rollover_max = int(rcount.text.strip())
+            config_node = sensor_node.find(TAG_SENSOR_CONFIG)
             if None is not config_node:
-                new_plugin.config = et.tostring(config_node).decode('utf-8') 
-            self.plugins.append(new_plugin)
+                new_sensor_settings.config = et.tostring(config_node).decode('utf-8') 
+            self.sensor_settings.append(new_sensor_settings)
 
         power = self.root.find(TAG_POWER)
         if None is not power:
@@ -141,61 +141,62 @@ class LoggerSettings(config.Settings):
 class CcsLogger(object):
 
     def __init__(self):
-        self.load_plugins()
+        self.sensors = list()
+        self.load_sensor_modules()
 
-    def get_plugin_metadata(self,name):
+    def get_sensor_settings(self,name):
         global g_config
         rv = None
-        for plugin_meta in g_config.plugins:
-            if name == plugin_meta.name:
-                rv = plugin_meta
+        for ss in g_config.sensor_settings:
+            if name == ss.name:
+                rv = ss
                 break
         return rv
 
-    def load_plugins(self):
-        self.plugins = list()
+    def load_sensor_modules(self):
+        self.sensor_modules = list()
         self.most_recent_data = dict()
 
-        if False == os.path.exists(SHARED_OBJECT_DIR):
-            os.mkdir(SHARED_OBJECT_DIR,mode=0o755)
-        files = os.listdir(SHARED_OBJECT_DIR)
+        if False == os.path.exists(SENSOR_MODULE_DIR):
+            os.mkdir(SENSOR_MODULE_DIR,mode=0o755)
+        files = os.listdir(SENSOR_MODULE_DIR)
         for f in files:
             if f.endswith('.py'):
                 if '__init__.py' != f:
                     f = f[:-3]
-                    name = SHARED_OBJECT_DIR + '.' + f
+                    name = SENSOR_MODULE_DIR + '.' + f
                     try:
                         mod = import_module(name)
                         if hasattr(mod,"load"):
                             obj = mod.load()
-                            obj.plugin_name = f
+                            obj.sensor_name = f
                             if hasattr(obj,'set_log_callback'):
                                 obj.set_log_callback(logmsg)
-                            plugin_meta = self.get_plugin_metadata(f)
-                            if None is not plugin_meta:
+                            sensor_settings = self.get_sensor_settings(f)
+                            if None is not sensor_settings:
                                 if hasattr(obj,'set_config'):
-                                    obj.set_config(plugin_meta.config)
-                            self.plugins.append(obj)
-                            logmsg(NAME,'Loaded plugin: ' + f,INFO_MSG)
+                                    obj.set_config(sensor_settings.config)
+                            self.sensors.append(obj)
+                            logmsg(NAME,'Loaded sensor module: ' + f,INFO_MSG)
                         else:
-                            logmsg(NAME,'Plugin has no load function: ' + f,ERROR_MSG)
+                            logmsg(NAME,'Sensor module has no load function: ' + f,ERROR_MSG)
                     except Exception as ex:
-                        logmsg(NAME,'Failed to load plugin (' + f + '): ' + str(ex),ERROR_MSG)
+                        logmsg(NAME,'Failed to load sensor module (' + f + '): ' + str(ex),ERROR_MSG)
 
 
-    def collect(self,plugin,plugin_meta):
-        plugin_meta.rollover_count += 1
+    def collect(self,sensor,sensor_settings):
+        sensor_settings.rollover_count += 1
 
-        if (plugin_meta.path == None) or (plugin_meta.rollover_count >= plugin_meta.rollover_max):
-            plugin_meta.path = self.get_collect_file_path(plugin.get_label())
-            plugin_meta.rollover_count = 0
+        if (sensor_settings.path == None) or (sensor_settings.rollover_count >= sensor_settings.rollover_max):
+            sensor_settings.path = self.get_collect_file_path()
+            sensor_settings.rollover_count = 0
         timestamp = datetime.datetime.now(datetime.UTC)
         s = timestamp.strftime('%Y%m%d %I:%M:%S')
         header_written = True
-        with open(plugin_meta.path,'a') as fd:
-            if 0 == os.path.getsize(plugin_meta.path):
+        with open(sensor_settings.path,'a') as fd:
+            if 0 == os.path.getsize(sensor_settings.path):
                 header_written = False
-            data = plugin.get_current_values()
+            data = sensor.get_current_values()
             if False == header_written:
                 header = self.get_header(data)
                 fd.write(header + '\n')
@@ -211,7 +212,8 @@ class CcsLogger(object):
             s += ',' + str(x[0])
         return s
 
-    def get_collect_file_path(self,label):
+    # FIXME: At some point we need to combine sensors with the same schedule 
+    def get_collect_file_path(self):
         global g_config
         ts = datetime.datetime.now(datetime.UTC)
         name = ts.strftime('%Y%m%d_%I%M%S') + COLLECT_SUFFIX
@@ -224,9 +226,18 @@ def get_pisugar2_manager(cfg):
         if None is not power_manager:
             if hasattr(power_manager,'set_log_callback'):
                 power_manager.set_log_callback(logmsg)
+            # It turns out that when the sugar module is connected and powered
+            # off, but the pi is plugged in, the sugar module will respond 
+            # properly to some queries, but not to others. We put a
+            # 'get_battery_percentage' call in here to force a failure
+            # and to let the user now the battery level
+            bat = power_manager.get_battery_percentage()
+            power_manager.logmsg('Battery: ' + str(bat) + ' %',0)
     except ConnectionRefusedError:
+        power_manager = None
         logmsg(NAME,'PiSugar configured, but not found',ERROR_MSG)
     except sugarcube.SugarDisconnected:
+        power_manager = None
         logmsg(NAME,'PiSugar configured, but not available',ERROR_MSG)
 
     if None is cfg.power_period:
@@ -249,28 +260,38 @@ def run(args):
         if g_config.power_manager == PM_PISUGAR2:
             power_manager = get_pisugar2_manager(g_config)
         else:
-            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + plugin.get_label()
+            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + sensor_settings.get_label()
             logmsg(NAME,msg,INFO_MSG)
+        # If a power manager is configured, but we can't talk to it, the user has probably
+        # plugged in the Rasbperry Pi and wants to browse data, rather than collect.
+        if None is power_manager:
+            logmsg(NAME,'I assume you want to browse data, not collect. Exiting data logger.')
+            g_done = True
+            return
 
     data_logger = CcsLogger()
     total_count = 0
 
     if None is not power_manager:
-        for plugin in data_logger.plugins:
-            data_logger.collect(plugin,meta)
-        power_manager.sleep(g_config.power_period) 
+       for sensor_module in data_logger.sensors:
+           settings = data_logger.get_sensor_settings(sensor_module.sensor_name)
+           if None is not settings:
+               data_logger.collect(sensor_module,settings)
+           else:
+               logmsg(NAME,"Couldn't find settings for " + sensor_module.sensor_name,ERROR_MSG)
+       power_manager.sleep(g_config.power_period) 
     else:
         while True == g_collect:
-            for plugin in data_logger.plugins:
-                meta = data_logger.get_plugin_metadata(plugin.plugin_name)
-                if None is not meta:
-                    if meta.ticks >= meta.period or first_time:
-                        data_logger.collect(plugin,meta)
-                        meta.ticks = 0
-                    meta.ticks += 1
+            for sensor_module in data_logger.sensors:
+                settings = data_logger.get_sensor_settings(sensor_module.sensor_name)
+                if None is not settings:
+                    if settings.ticks >= settings.period or first_time:
+                        data_logger.collect(sensor_module,settings)
+                        settings.ticks = 0
+                    settings.ticks += 1
                     first_time = False
                 else:
-                    msg = 'Plugin is missing metadata in configuration file: ' + plugin.get_label()
+                    msg = 'Sensor module is missing sensor-config in settings file: ' + sensor_module.get_label()
                     logmsg(NAME,msg,ERROR_MSG)
             # 60 seconds per tick
             time.sleep(60)
@@ -279,8 +300,6 @@ def run(args):
 if '__main__' == __name__:
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-c','--config',required=True,help='Path to config file')
-    arg_parser.add_argument('-p','--period',type=int,help='Number of minutes between collection events, default is 30')
-    arg_parser.add_argument('-e','--events',type=int,help='Number of collection events to store in each file, default is 48')
     args = arg_parser.parse_args()
     while False == g_done:
         run(args)
