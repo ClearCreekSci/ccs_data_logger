@@ -73,7 +73,7 @@ def logmsg(tag,msg,level=0):
         if (level == 0 and g_info_count <= MAX_REPORTED_INFO_MSGS) or (g_error_count <= MAX_REPORTED_ERRORS):
             with open(g_config.log_path,'a') as fd:
                 ts = datetime.datetime.now(datetime.UTC)
-                s = ts.strftime('%Y-%m-%d %I:%M:%S ') + '[' + tag + '] ' + msg + '\n'
+                s = ts.strftime('%Y-%m-%d %H:%M:%S ') + '[' + tag + '] ' + msg + '\n'
                 fd.write(s)
                 if level != 0 and (g_error_count == MAX_REPORTED_ERRORS):
                     fd.write(TOO_MANY_ERRORS)
@@ -84,16 +84,30 @@ def logmsg(tag,msg,level=0):
             else:
                 g_error_count += 1
 
+class CollectionEvent(object):
+
+    def __init__(self):
+        self.sensors = list()
+        self.settings = list()
+        self.path = None
+        self.ticks = 0
+        self.header_written = False
+
+    def __str__(self):
+        rv = ''
+        for s in self.sensors:
+            rv += 'name: ' + s.get_label()
+            rv += ', '
+        return rv
+
 class SensorSettings(object):
 
     def __init__(self):
         self.name = None
         self.active = False
-        self.ticks = 0
         self.period = 0
         self.rollover_max = 0
         self.rollover_count = 0
-        self.path = None
         self.config = None
 
 class LoggerSettings(config.Settings):
@@ -103,12 +117,13 @@ class LoggerSettings(config.Settings):
         self.sensor_settings = list()
         self.log_path = None
         self.power_manager = None
+        self.schedule = None
 
     def read(self,path):
         super().read(path)
         if None is not self.log_dir:
             ts = datetime.datetime.now(datetime.UTC)
-            name = ts.strftime('%Y%m%d%I%M%S') + LOG_SUFFIX
+            name = ts.strftime('%Y%m%d%H%M%S') + LOG_SUFFIX
             self.log_path = os.path.join(g_config.log_dir,name)
         else:
             self.log_path = '/tmp/data_logger.log'
@@ -153,6 +168,14 @@ class CcsLogger(object):
                 break
         return rv
 
+    def get_sensor(self,name):
+        rv = None
+        for s in self.sensors:
+            if s.get_label() == name:
+                rv = s
+                break
+        return rv
+
     def load_sensor_modules(self):
         self.sensor_modules = list()
         self.most_recent_data = dict()
@@ -184,23 +207,25 @@ class CcsLogger(object):
                         logmsg(NAME,'Failed to load sensor module (' + f + '): ' + str(ex),ERROR_MSG)
 
 
-    def collect(self,sensor,sensor_settings):
-        sensor_settings.rollover_count += 1
+    def collect(self,event):
+        event.settings[0].rollover_count += 1
+        if (event.path == None) or (event.settings[0].rollover_count >= event.settings[0].rollover_max):
+            event.path = self.get_collect_file_path(event)
+            event.settings[0].rollover_count = 0
 
-        if (sensor_settings.path == None) or (sensor_settings.rollover_count >= sensor_settings.rollover_max):
-            sensor_settings.path = self.get_collect_file_path()
-            sensor_settings.rollover_count = 0
         timestamp = datetime.datetime.now(datetime.UTC)
-        s = timestamp.strftime('%Y%m%d %I:%M:%S')
-        header_written = True
-        with open(sensor_settings.path,'a') as fd:
-            if 0 == os.path.getsize(sensor_settings.path):
-                header_written = False
-            data = sensor.get_current_values()
-            if False == header_written:
+        s = timestamp.strftime('%Y%m%d %H:%M:%S')
+        event.header_written = True
+        with open(event.path,'a') as fd:
+            data = tuple()
+            if 0 == os.path.getsize(event.path):
+                event.header_written = False
+            for sensor in event.sensors:
+                data += sensor.get_current_values()
+            if False == event.header_written:
                 header = self.get_header(data)
                 fd.write(header + '\n')
-                header_written = True
+                event.header_written = True
             for x in data:
                 if 2 == len(x):
                     s += ',' + str(x[1])
@@ -212,11 +237,11 @@ class CcsLogger(object):
             s += ',' + str(x[0])
         return s
 
-    # FIXME: At some point we need to combine sensors with the same schedule 
-    def get_collect_file_path(self):
+    def get_collect_file_path(self,event):
         global g_config
         ts = datetime.datetime.now(datetime.UTC)
-        name = ts.strftime('%Y%m%d_%I%M%S') + COLLECT_SUFFIX
+        period = '_p' + str(event.settings[0].period) + '_r' + str(event.settings[0].rollover_max)
+        name = ts.strftime('%Y%m%d_%H%M%S') + period + COLLECT_SUFFIX
         return os.path.join(g_config.csv_dir,name)
 
 def get_pisugar2_manager(cfg):
@@ -245,12 +270,58 @@ def get_pisugar2_manager(cfg):
 
     return power_manager
 
+# Call this after reading configuration _and_ after loading sensors
+def create_schedule(config,logger):
+    schedule = list()
+    for ss in config.sensor_settings:
+        event = CollectionEvent()
+        event.settings.append(ss)
+        s = logger.get_sensor(ss.name)
+        if None is not s:
+            event.sensors.append(s)
+        schedule.append(event)
+
+    if len(schedule) > 1:
+        config.schedule = list()
+        for idx in range(len(schedule)):
+            test_event = schedule[idx]
+            if test_event.ticks == 0:
+                test_event.ticks = 1
+                config.schedule.append(test_event)
+                for event in schedule:
+                    if (test_event != event) and (event.ticks == 0):
+                        if (test_event.settings[0].period == event.settings[0].period) and (test_event.settings[0].rollover_max == event.settings[0].rollover_max):
+                            event.ticks = 1
+                            test_event.sensors.append(event.sensors[0])
+                            test_event.settings.append(event.settings[0])
+        for event in config.schedule:
+            event.ticks = 0
+    #    while len(schedule) > 0:
+    #        for event in schedule:
+    #            print('Processing event: ' + str(event))
+    #            if (test_event.settings[0].period == event.settings[0].period) and (test_event.settings[0].rollover_max == event.settings[0].rollover_max):
+    #                test_event.sensors.append(event.sensors[0])
+    #                test_event.settings.append(event.settings[0])
+    #                schedule.remove(event)
+    #        if len(schedule) > 0:
+    #            test_event = schedule[0]
+    #            config.schedule.append(test_event)
+    #            schedule = schedule[1:]
+    else:
+        config.schedule = schedule
+
+    for ev in config.schedule:
+        print(str(ev))
+
+def print_schedule(s,banner):
+    print(banner)
+    for e in s:
+        print(str(e))
+    print('--------------')
 
 def run(args):
     global g_done
     global g_config
-
-    first_time = True
 
     power_manager = None
     g_config = LoggerSettings()
@@ -272,24 +343,22 @@ def run(args):
     data_logger = CcsLogger()
     total_count = 0
 
+    create_schedule(g_config,data_logger)
+
     if None is not power_manager:
-       for sensor_module in data_logger.sensors:
-           settings = data_logger.get_sensor_settings(sensor_module.sensor_name)
-           if None is not settings:
-               data_logger.collect(sensor_module,settings)
-           else:
-               logmsg(NAME,"Couldn't find settings for " + sensor_module.sensor_name,ERROR_MSG)
+       for event in g_config.schedule:
+           data_logger.collect(event)
+       else:
+           logmsg(NAME,"Couldn't find settings for " + sensor_module.sensor_name,ERROR_MSG)
        power_manager.sleep(g_config.power_period) 
     else:
         while True == g_collect:
-            for sensor_module in data_logger.sensors:
-                settings = data_logger.get_sensor_settings(sensor_module.sensor_name)
-                if None is not settings:
-                    if settings.ticks >= settings.period or first_time:
-                        data_logger.collect(sensor_module,settings)
-                        settings.ticks = 0
-                    settings.ticks += 1
-                    first_time = False
+            for event in g_config.schedule:
+                if None is not event.settings[0]:
+                    if event.ticks >= event.settings[0].period or False == event.header_written:
+                        data_logger.collect(event)
+                        event.ticks = 0
+                    event.ticks += 1
                 else:
                     msg = 'Sensor module is missing sensor-config in settings file: ' + sensor_module.get_label()
                     logmsg(NAME,msg,ERROR_MSG)
