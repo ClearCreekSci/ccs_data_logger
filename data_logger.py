@@ -22,7 +22,7 @@ import os
 import argparse
 import logging
 import time
-from sugarcube import sugarcube
+#from sugarcube import sugarcube
 from importlib import import_module
 import datetime
 
@@ -244,31 +244,31 @@ class CcsLogger(object):
         name = ts.strftime('%Y%m%d_%H%M%S') + period + COLLECT_SUFFIX
         return os.path.join(g_config.csv_dir,name)
 
-def get_pisugar2_manager(cfg):
-    power_manager = None
-    try:
-        power_manager = sugarcube.Connection()
-        if None is not power_manager:
-            if hasattr(power_manager,'set_log_callback'):
-                power_manager.set_log_callback(logmsg)
-            # It turns out that when the sugar module is connected and powered
-            # off, but the pi is plugged in, the sugar module will respond 
-            # properly to some queries, but not to others. We put a
-            # 'get_battery_percentage' call in here to force a failure
-            # and to let the user now the battery level
-            bat = power_manager.get_battery_percentage()
-            power_manager.logmsg('Battery: ' + str(bat) + ' %',0)
-    except ConnectionRefusedError:
-        power_manager = None
-        logmsg(NAME,'PiSugar configured, but not found',ERROR_MSG)
-    except sugarcube.SugarDisconnected:
-        power_manager = None
-        logmsg(NAME,'PiSugar configured, but not available',ERROR_MSG)
-
-    if None is cfg.power_period:
-        logmsg(NAME,'PiSugar power manager is missing "period" element in configuration file',ERROR_MSG)
-
-    return power_manager
+#def get_pisugar2_manager(cfg):
+#    power_manager = None
+#    try:
+#        power_manager = sugarcube.Connection()
+#        if None is not power_manager:
+#            if hasattr(power_manager,'set_log_callback'):
+#                power_manager.set_log_callback(logmsg)
+#            # It turns out that when the sugar module is connected and powered
+#            # off, but the pi is plugged in, the sugar module will respond 
+#            # properly to some queries, but not to others. We put a
+#            # 'get_battery_percentage' call in here to force a failure
+#            # and to let the user now the battery level
+#            bat = power_manager.get_battery_percentage()
+#            power_manager.logmsg('Battery: ' + str(bat) + ' %',0)
+#    except ConnectionRefusedError:
+#        power_manager = None
+#        logmsg(NAME,'PiSugar configured, but not found',ERROR_MSG)
+#    except sugarcube.SugarDisconnected:
+#        power_manager = None
+#        logmsg(NAME,'PiSugar configured, but not available',ERROR_MSG)
+#
+#    if None is cfg.power_period:
+#        logmsg(NAME,'PiSugar power manager is missing "period" element in configuration file',ERROR_MSG)
+#
+#    return power_manager
 
 # Call this after reading configuration _and_ after loading sensors
 def create_schedule(config,logger):
@@ -327,11 +327,11 @@ def run(args):
     g_config = LoggerSettings()
     g_config.read(args.config)
 
-    if None is not g_config.power_manager:
-        if g_config.power_manager == PM_PISUGAR2:
-            power_manager = get_pisugar2_manager(g_config)
-        else:
-            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + sensor_settings.get_label()
+#    if None is not g_config.power_manager:
+#        if g_config.power_manager == PM_PISUGAR2:
+#            power_manager = get_pisugar2_manager(g_config)
+#        else:
+#            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + sensor_settings.get_label()
             logmsg(NAME,msg,INFO_MSG)
         # If a power manager is configured, but we can't talk to it, the user has probably
         # plugged in the Rasbperry Pi and wants to browse data, rather than collect.
