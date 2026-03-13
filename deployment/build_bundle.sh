@@ -7,7 +7,7 @@ fi
 
 ./make_manifest.sh $VERSION > ./manifest.xml
 
-zip -r "${PREFIX}_v${VERSION}.zip" ./settings.cfg ./manifest.xml ../data_logger.py ../ccs_base/*.py ../ccs_dlconfig/*.py ./system/ccsdatalogger.service
+zip -r "${PREFIX}_v${VERSION}.zip" ./settings.cfg ./manifest.xml ../data_logger.py ../sensormods ../ccs_base/*.py ../ccs_dlconfig/*.py ./system/ccsdatalogger.service
 
 
 

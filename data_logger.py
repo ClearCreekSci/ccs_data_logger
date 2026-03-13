@@ -332,13 +332,13 @@ def run(args):
 #            power_manager = get_pisugar2_manager(g_config)
 #        else:
 #            msg = 'Unknown power manager: ' + g_config.power_manager + ' for ' + sensor_settings.get_label()
-            logmsg(NAME,msg,INFO_MSG)
-        # If a power manager is configured, but we can't talk to it, the user has probably
-        # plugged in the Rasbperry Pi and wants to browse data, rather than collect.
-        if None is power_manager:
-            logmsg(NAME,'I assume you want to browse data, not collect. Exiting data logger.')
-            g_done = True
-            return
+#            logmsg(NAME,msg,INFO_MSG)
+#        # If a power manager is configured, but we can't talk to it, the user has probably
+#        # plugged in the Rasbperry Pi and wants to browse data, rather than collect.
+#        if None is power_manager:
+#            logmsg(NAME,'I assume you want to browse data, not collect. Exiting data logger.')
+#            g_done = True
+#            return
 
     data_logger = CcsLogger()
     total_count = 0
