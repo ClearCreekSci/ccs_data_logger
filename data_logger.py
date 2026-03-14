@@ -2,7 +2,7 @@
     data_logger.py
     Records data from various sensors
 
-    Copyright (C) 2025 Clear Creek Scientific
+    Copyright (C) 2026 Clear Creek Scientific
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,16 +22,17 @@ import os
 import argparse
 import logging
 import time
-#from sugarcube import sugarcube
 from importlib import import_module
 import datetime
 
 from ccs_dlconfig import config
+from ccs_dlconfig import interpret_boolean_value
 
 import xml.etree.ElementTree as et
 
 NAME                                = 'data_logger'
 SENSOR_MODULE_DIR                   = 'sensormods'
+POWER_MODULE_DIR                    = 'powermods'
 
 # For the default period of 30 minutes between events, collecting 48 events gives
 # a one day default file rollover...
@@ -40,14 +41,16 @@ DEFAULT_ROLLOVER_COUNT              = 48
 COLLECT_SUFFIX                      = '_ccs_data_logger.csv'
 LOG_SUFFIX                          = '_ccs_data_logger.log'
 
-PM_PISUGAR2           = 'pisugar2'
-
+TAG_ACTIVE            = 'active'
 TAG_PERIOD            = 'period'
 TAG_MANAGER           = 'manager'
+TAG_MODULE_CONFIG     = 'module-config'
 TAG_SENSOR            = 'sensor'
 TAG_SENSORS           = 'sensors'
+# FIXME: Change this to "module-config"
 TAG_SENSOR_CONFIG     = 'sensor-config'
-TAG_POWER             = 'power'
+TAG_POWER_MODULE      = 'power-module'
+TAG_POWER_MODULES     = 'power-modules'
 TAG_ROLLOVER_COUNT    = 'rollover-count'
 TAG_SCHEDULE          = 'schedule'
 
@@ -100,6 +103,14 @@ class CollectionEvent(object):
             rv += ', '
         return rv
 
+class PowerModuleSettings(object):
+
+    def __init__(self):
+        self.name = None
+        self.active = False
+        self.period = 0
+        self.config = None
+
 class SensorSettings(object):
 
     def __init__(self):
@@ -115,6 +126,7 @@ class LoggerSettings(config.Settings):
     def __init__(self):
         super().__init__()
         self.sensor_settings = list()
+        self.power_settings = list()
         self.log_path = None
         self.power_manager = None
         self.schedule = None
@@ -129,40 +141,63 @@ class LoggerSettings(config.Settings):
             self.log_path = '/tmp/data_logger.log'
 
         sensors = self.root.find(TAG_SENSORS)
-        for sensor_node in sensors:
-            new_sensor_settings = SensorSettings() 
-            new_sensor_settings.name = sensor_node.get('name')
-            schedule = sensor_node.find(TAG_SCHEDULE)
-            period_node = schedule.find(TAG_PERIOD)
-            new_sensor_settings.period = int(period_node.text.strip())
-            rcount = schedule.find(TAG_ROLLOVER_COUNT)
-            if None is not rcount:
-                new_sensor_settings.rollover_max = int(rcount.text.strip())
-            config_node = sensor_node.find(TAG_SENSOR_CONFIG)
-            if None is not config_node:
-                new_sensor_settings.config = et.tostring(config_node).decode('utf-8') 
-            self.sensor_settings.append(new_sensor_settings)
+        if None is not sensors:
+            for sensor_node in sensors:
+                new_sensor_settings = SensorSettings() 
+                new_sensor_settings.name = sensor_node.get('name')
+                schedule = sensor_node.find(TAG_SCHEDULE)
+                period_node = schedule.find(TAG_PERIOD)
+                new_sensor_settings.period = int(period_node.text.strip())
+                rcount = schedule.find(TAG_ROLLOVER_COUNT)
+                if None is not rcount:
+                    new_sensor_settings.rollover_max = int(rcount.text.strip())
+                config_node = sensor_node.find(TAG_SENSOR_CONFIG)
+                if None is not config_node:
+                    new_sensor_settings.config = et.tostring(config_node).decode('utf-8') 
+                self.sensor_settings.append(new_sensor_settings)
+        else:
+            logmsg(NAME,"No sensor module configuration found",ERROR_MSG)
 
-        power = self.root.find(TAG_POWER)
-        if None is not power:
-            man = power.find(TAG_MANAGER)
-            if None is not man:
-                self.power_manager = man.text.strip()
+        power_modules = self.root.find(TAG_POWER_MODULES)
+        if None is not power_modules:
+            for mod_node in power_modules:
+                new_settings = PowerModuleSettings()
+                new_settings.name = mod_node.get('name')
+                active_node = mod_node.find(TAG_ACTIVE)
+                if None is not active_node:
+                    new_settings.active = interpret_boolean_value(active_node.text.strip())
+                period_node = mod_node.find(TAG_PERIOD)
+                if None is not period_node:
+                    new_settings.period = int(period_node.text.strip())
+                config_node = mod_node.find(TAG_MODULE_CONFIG)
+                if None is not config_node:
+                    new_settings.config = et.tostring(config_node).decode('utf-8') 
+                self.power_settings.append(new_settings)
+        else:
+            logmsg(NAME,"No power module configuration found",INFO_MSG)
 
-            period = power.find(TAG_PERIOD)
-            if None is not period:
-                self.power_period = int(period.text.strip())
 
 class CcsLogger(object):
 
     def __init__(self):
         self.sensors = list()
         self.load_sensor_modules()
+        self.power_modules = list()
+        self.load_power_modules()
 
     def get_sensor_settings(self,name):
         global g_config
         rv = None
         for ss in g_config.sensor_settings:
+            if name == ss.name:
+                rv = ss
+                break
+        return rv
+
+    def get_power_settings(self,name):
+        global g_config
+        rv = None
+        for ss in g_config.power_settings:
             if name == ss.name:
                 rv = ss
                 break
@@ -177,9 +212,6 @@ class CcsLogger(object):
         return rv
 
     def load_sensor_modules(self):
-        self.sensor_modules = list()
-        self.most_recent_data = dict()
-
         if False == os.path.exists(SENSOR_MODULE_DIR):
             os.mkdir(SENSOR_MODULE_DIR,mode=0o755)
         files = os.listdir(SENSOR_MODULE_DIR)
@@ -206,6 +238,32 @@ class CcsLogger(object):
                     except Exception as ex:
                         logmsg(NAME,'Failed to load sensor module (' + f + '): ' + str(ex),ERROR_MSG)
 
+    def load_power_modules(self):
+        if False == os.path.exists(POWER_MODULE_DIR):
+            os.mkdir(POWER_MODULE_DIR,mode=0o755)
+        files = os.listdir(POWER_MODULE_DIR)
+        for f in files:
+            if f.endswith('.py'):
+                if '__init__.py' != f:
+                    f = f[:-3]
+                    name = POWER_MODULE_DIR + '.' + f
+                    try:
+                        mod = import_module(name)
+                        if hasattr(mod,"load"):
+                            obj = mod.load()
+                            obj.sensor_name = f
+                            if hasattr(obj,'set_log_callback'):
+                                obj.set_log_callback(logmsg)
+                            power_settings = self.get_power_settings(f)
+                            if None is not power_settings:
+                                if hasattr(obj,'set_config'):
+                                    obj.set_config(power_settings.config)
+                            self.power_modules.append(obj)
+                            logmsg(NAME,'Loaded power module: ' + f,INFO_MSG)
+                        else:
+                            logmsg(NAME,'Power module has no load function: ' + f,ERROR_MSG)
+                    except Exception as ex:
+                        logmsg(NAME,'Failed to load power module (' + f + '): ' + str(ex),ERROR_MSG)
 
     def collect(self,event):
         event.settings[0].rollover_count += 1
@@ -244,32 +302,6 @@ class CcsLogger(object):
         name = ts.strftime('%Y%m%d_%H%M%S') + period + COLLECT_SUFFIX
         return os.path.join(g_config.csv_dir,name)
 
-#def get_pisugar2_manager(cfg):
-#    power_manager = None
-#    try:
-#        power_manager = sugarcube.Connection()
-#        if None is not power_manager:
-#            if hasattr(power_manager,'set_log_callback'):
-#                power_manager.set_log_callback(logmsg)
-#            # It turns out that when the sugar module is connected and powered
-#            # off, but the pi is plugged in, the sugar module will respond 
-#            # properly to some queries, but not to others. We put a
-#            # 'get_battery_percentage' call in here to force a failure
-#            # and to let the user now the battery level
-#            bat = power_manager.get_battery_percentage()
-#            power_manager.logmsg('Battery: ' + str(bat) + ' %',0)
-#    except ConnectionRefusedError:
-#        power_manager = None
-#        logmsg(NAME,'PiSugar configured, but not found',ERROR_MSG)
-#    except sugarcube.SugarDisconnected:
-#        power_manager = None
-#        logmsg(NAME,'PiSugar configured, but not available',ERROR_MSG)
-#
-#    if None is cfg.power_period:
-#        logmsg(NAME,'PiSugar power manager is missing "period" element in configuration file',ERROR_MSG)
-#
-#    return power_manager
-
 # Call this after reading configuration _and_ after loading sensors
 def create_schedule(config,logger):
     schedule = list()
@@ -296,28 +328,15 @@ def create_schedule(config,logger):
                             test_event.settings.append(event.settings[0])
         for event in config.schedule:
             event.ticks = 0
-    #    while len(schedule) > 0:
-    #        for event in schedule:
-    #            print('Processing event: ' + str(event))
-    #            if (test_event.settings[0].period == event.settings[0].period) and (test_event.settings[0].rollover_max == event.settings[0].rollover_max):
-    #                test_event.sensors.append(event.sensors[0])
-    #                test_event.settings.append(event.settings[0])
-    #                schedule.remove(event)
-    #        if len(schedule) > 0:
-    #            test_event = schedule[0]
-    #            config.schedule.append(test_event)
-    #            schedule = schedule[1:]
     else:
         config.schedule = schedule
-
-    for ev in config.schedule:
-        print(str(ev))
 
 def print_schedule(s,banner):
     print(banner)
     for e in s:
         print(str(e))
     print('--------------')
+
 
 def run(args):
     global g_done
