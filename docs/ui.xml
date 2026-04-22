@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ccs-ui ns="ccs_data_logger">
+    <types>
+       <struct>
+           <ns>logger</ns>
+           <name>schedule</name>
+           <desc>Configure time between collection events and number of collection events per file</desc>
+           <member>
+               <name>period</name>
+               <type>int</type>
+               <desc>The number of minutes between collection events</desc>
+               <default>30</default>
+           </member>
+           <member>
+               <name>rollover-count</name>
+               <type>int</type>
+               <desc>The number of collection events stored in each .csv file</desc>
+               <default>48</default>
+           </member>
+        </struct>
+	<struct>
+            <ns>logger</ns>
+	    <name>sensor</name>
+	    <desc>Generic sensor for use with the data logger</desc>
+	    <member>
+                <!-- All sensors MUST have a "name" member that is the same -->
+                <!-- name as the sensor's python file (eg. "bme280.py) -->
+               <name>name</name>
+               <type>string</type>
+               <desc>The name of the sensor, same as the basename of the file implementing the sensor</desc>
+	    </member>
+	    <member>
+               <name>schedule</name>
+               <type>logger:schedule</type>
+	    </member>
+        </struct>
+	<list>
+            <ns>logger</ns>
+            <name>sensors</name>
+	    <type>list</type>
+	    <subtype>logger:sensor</subtype>
+	    <desc>List of sensor objects</desc>
+	</list>
+    </types>
+    <ui>
+        <object>
+            <type>top:paths</type>
+        </object>
+	<object>
+            <type>logger:sensors</type>
+        </object>
+    </ui>
+</ccs-ui>
+
