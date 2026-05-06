@@ -9,13 +9,11 @@
                <name>period</name>
                <type>int</type>
                <desc>The number of minutes between collection events</desc>
-               <default>30</default>
            </member>
            <member>
                <name>rollover-count</name>
                <type>int</type>
                <desc>The number of collection events stored in each .csv file</desc>
-               <default>48</default>
            </member>
         </struct>
 	<struct>
@@ -45,7 +43,13 @@
     <ui>
         <object>
             <name>paths</name>
-            <type>top:paths</type>
+	    <type>top:paths</type>
+            <defaults>
+                <log>/opt/ccs/DataLogger/log</log>
+	        <csv>/opt/ccs/DataLogger/csv</csv>
+	        <photos>/opt/ccs/DataLogger/photos</photos>
+	        <videos>/opt/ccs/DataLogger/videos</videos>
+            </defaults>
         </object>
 	<object>
             <name>sensors</name>
