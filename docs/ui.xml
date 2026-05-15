@@ -20,13 +20,14 @@
             <ns>logger</ns>
 	    <name>sensor</name>
 	    <desc>Generic sensor for use with the data logger</desc>
-	    <member>
+	    <member ignore="true">
                 <!-- All sensors MUST have a "name" member that is the same -->
-		    <!-- name as the sensor's python file (eg. "bme280.py) -->
-		    <!-- WHY? THIS SEEMS IRRELEVENT -->
-               <name>name</name>
-               <type>string</type>
-               <desc>The name of the sensor, same as the basename of the file implementing the sensor</desc>
+                <!-- name as the base part of the sensor's python -->
+                <!-- file (eg. "bme280"). This is used directly in the settings -->
+                <!-- file, so we ignore it in configuration  -->
+                <name>name</name>
+                <type>string</type>
+                <desc>The name of the sensor, same as the basename of the file implementing the sensor</desc>
 	    </member>
 	    <member>
                <name>schedule</name>
