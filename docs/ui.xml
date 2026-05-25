@@ -38,7 +38,7 @@
             <ns>logger</ns>
             <name>sensors</name>
 	    <type>list</type>
-	    <subtype>logger:sensor</subtype>
+	    <itemtype>logger:sensor</itemtype>
 	    <desc>List of sensor objects</desc>
 	</list>
     </types>
