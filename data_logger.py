@@ -45,6 +45,7 @@ TAG_ACTIVE            = 'active'
 TAG_PERIOD            = 'period'
 TAG_MANAGER           = 'manager'
 TAG_MODULE_CONFIG     = 'module-config'
+TAG_NAME              = 'name'
 TAG_SENSOR            = 'sensor'
 TAG_SENSORS           = 'sensors'
 # FIXME: Change this to "module-config"
@@ -56,8 +57,8 @@ TAG_SCHEDULE          = 'schedule'
 
 INFO_MSG               = 0
 ERROR_MSG              = 1
-MAX_REPORTED_ERRORS    = 20
-MAX_REPORTED_INFO_MSGS = 20
+MAX_REPORTED_ERRORS    = 200
+MAX_REPORTED_INFO_MSGS = 200
 TOO_MANY_ERRORS        = 'Too many errors to report...'
 TOO_MANY_INFO_MSGS     = 'Too many non-error messages to report...'
 
@@ -121,6 +122,11 @@ class SensorSettings(object):
         self.rollover_count = 0
         self.config = None
 
+    def __repr__(self):
+        rv = ''
+        rv += 'name: ' + str(self.name) + ', active: ' + str(self.active) + ', period: ' + str(self.period) + ', rollover_max: ' + str(self.rollover_max)
+        return rv
+
 class LoggerSettings(config.Settings):
 
     def __init__(self):
@@ -144,7 +150,9 @@ class LoggerSettings(config.Settings):
         if None is not sensors:
             for sensor_node in sensors:
                 new_sensor_settings = SensorSettings() 
-                new_sensor_settings.name = sensor_node.get('name')
+                name_node = sensor_node.find(TAG_NAME)
+                if None is not name_node:
+                    new_sensor_settings.name = name_node.text.strip()
                 schedule = sensor_node.find(TAG_SCHEDULE)
                 period_node = schedule.find(TAG_PERIOD)
                 new_sensor_settings.period = int(period_node.text.strip())
@@ -331,12 +339,11 @@ def create_schedule(config,logger):
     else:
         config.schedule = schedule
 
-def print_schedule(s,banner):
-    print(banner)
+def get_schedule(s,banner):
+    rv = str(banner) + '\n'
     for e in s:
-        print(str(e))
-    print('--------------')
-
+        rv += str(e) + '\n'
+    return rv
 
 def run(args):
     global g_done
