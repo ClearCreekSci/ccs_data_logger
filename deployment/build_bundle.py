@@ -9,7 +9,7 @@ import xml.etree.ElementTree as et
 from glob import glob
 
 DEFAULT_VERSION         = '1'
-DEFAULT_PREFIX          = 'install'
+DEFAULT_PREFIX          = 'ccs_data_logger'
 
 MANIFEST_NAME           = 'manifest.xml'
 ZIP_SUFFIX              = '.zip'
@@ -200,7 +200,7 @@ def run(args):
 
     # Concatenate the base script and the zip file
     read_buf = ''
-    install_script_name = str(prefix) + '_logger_v' + str(version) + SCRIPT_SUFFIX
+    install_script_name = str(prefix) + '_install_v' + str(version) + SCRIPT_SUFFIX
     with open(install_script_name,'wb') as fd:
         script = script.encode('utf-8')
         fd.write(script)
