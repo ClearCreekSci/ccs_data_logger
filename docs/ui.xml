@@ -47,6 +47,7 @@
             <name>paths</name>
 	    <type>top:paths</type>
             <defaults>
+                <base>/opt/ccs/DataLogger</base>
                 <log>/opt/ccs/DataLogger/log</log>
 	        <csv>/opt/ccs/DataLogger/csv</csv>
 	        <photos>/opt/ccs/DataLogger/photos</photos>
