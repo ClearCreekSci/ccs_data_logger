@@ -58,6 +58,13 @@
             <name>sensors</name>
             <type>logger:sensors</type>
         </object>
+            <object>
+            <name>version</name>
+	    <type>string</type>
+            <defaults>
+                <version>1</version>
+            </defaults>
+        </object>
     </ui>
 </ccs-ui>
 

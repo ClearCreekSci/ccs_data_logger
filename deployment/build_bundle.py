@@ -24,13 +24,12 @@ TAG_ROOT                = 'ccs-config'
 TAG_SENSOR              = 'sensor'
 TAG_SENSORS             = 'sensors'
 
-# FIXME: This needs to be configurable...
 TOPLEVEL_DST            = '/opt/ccs'
-SITE_DIR                = 'site-packages'
 DATALOGGER_DST          = TOPLEVEL_DST + '/DataLogger'
 SYSTEMD_SERVICE_DST     = '/etc/systemd/system'
 UNZIP_DST               = './unzip'
-SETTINGS_FILE_NAME      = './settings.cfg'
+SETTINGS_FILE_NAME      = 'settings.cfg'
+SERVICE_FILE_NAME       = 'system/ccsdataserver.service'
 
 class InvalidSettingsFileException(Exception):
     pass
@@ -110,6 +109,9 @@ def create_base_script(zip_size,settings):
     rv += 'mkdir ' + UNZIP_DST + '\n'
         # Extract the zip file from the install script
     rv += 'dd bs=1 if="$ME" of=script.zip skip=' + SCRIPT_LEN_REPLACE_STR + ' count=' + str(zip_size) + '\n'
+    rv += 'echo "Extracting files..."\n'
+    rv += 'rm -rf ${UNZIP_DST}\n'
+    rv += 'mkdir ${UNZIP_DST}\n'
     rv += 'unzip -q -d ' + UNZIP_DST + ' script.zip\n'
     rv += '# Setup up the data logger files...\n'
 
@@ -170,6 +172,38 @@ def run(args):
         fd.write('<commit>' + commit + '</commit>\n')
         fd.write('<version>' + str(version) + '</version>\n')
         fd.write('</manifest>\n')
+
+        # FIXME: We need to build the systemctl service file using the
+        # configured paths instead of copying a static version of it...
+        # This is the current service file
+        # [Unit]
+        # Description=Clear Creek Scientific Data Logger
+        # StartLimitIntervalSec=300
+        # StartLimitBurst=5
+        #
+        # [Service]
+        # WorkingDirectory=/opt/ccs/DataLogger
+        # ExecStart=python /opt/ccs/DataLogger/data_logger.py -c /opt/ccs/DataLogger/settings.cfg
+        # Restart=on-failure
+        # RestartSec=10s
+        #
+        # [Install]
+        # WantedBy=default.target
+    # Create the systemd service file
+    with open(SERVICE_FILE_NAME,'wt') as fd:
+        fd.write('[Unit]\n')
+        fd.write('Description=Clear Creek Scientific Data Logger\n')
+        fd.write('StartLimitIntervalSec=300\n')
+        fd.write('StartLimitBurst=5\n')
+        fd.write('[Service]\n')
+        fd.write('WorkingDirectory=' + settings.paths[TAG_BASE] + '\n')
+        s = 'ExecStart=python ' + settings.paths[TAG_BASE] + '/data_logger.py -c' + settings.paths[TAG_BASE + '/' + SETTINGS_FILE_NAME + '\n'
+        fd.write(s) 
+        fd.write('Restart=on-failure\n')
+        fd.write('RestartSec=10s\n')
+        fd.write('[Install]\n')
+        fd.write('WantedBy=default.target\n')
+ 
 
     # Create the zip file
     zip_name = str(prefix) + '_v' + str(version) + ZIP_SUFFIX
