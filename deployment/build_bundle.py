@@ -1,6 +1,7 @@
 import argparse
 import os
 import subprocess
+import sys
 import zipfile
 
 import datetime as dt
@@ -17,7 +18,7 @@ SCRIPT_SUFFIX           = '.sh'
 
 SCRIPT_LEN_REPLACE_STR  = '<***>'
 
-TAG_BASE                = 'paths'
+TAG_BASE                = 'base'
 TAG_NAME                = 'name'
 TAG_PATHS               = 'paths'
 TAG_ROOT                = 'ccs-config'
@@ -81,9 +82,9 @@ def get_settings(path):
             rv.read(path)
         except Exception as ex:
             rv = None
-            sys.stderr.print('Exception reading settings file: ' + str(ex))
+            sys.stderr.write('Exception reading settings file: ' + str(ex))
     else:
-        sys.stderr.print("Couldn't find settings file: " + str(path))
+        sys.stderr.write("Couldn't find settings file: " + str(path))
     return rv
 
 def add_glob_to_zip(zf,src,dst,glob_str):
@@ -159,6 +160,7 @@ def run(args):
 
     settings = get_settings(SETTINGS_FILE_NAME)
     if None is settings:
+        sys.stderr.write('[!] settings is NULL!\n')
         return
 
     if TAG_BASE in settings.paths.keys():
