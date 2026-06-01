@@ -81,9 +81,9 @@ def get_settings(path):
             rv.read(path)
         except Exception as ex:
             rv = None
-            print('Exception reading settings file: ' + str(ex))
+            sys.stderr.print('Exception reading settings file: ' + str(ex))
     else:
-        print("Couldn't find settings file: " + str(path))
+        sys.stderr.print("Couldn't find settings file: " + str(path))
     return rv
 
 def add_glob_to_zip(zf,src,dst,glob_str):
@@ -225,6 +225,8 @@ def run(args):
         with open(zip_name,'rb') as zfd:
             zip_buf = zfd.read()
         fd.write(zip_buf) 
+    script_path = os.path.join(cwd,install_script_name)
+    sys.stdout.write(script_path)
     
 
 if '__main__' == __name__:
