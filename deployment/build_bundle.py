@@ -165,6 +165,11 @@ def run(args):
 
     if TAG_BASE in settings.paths.keys():
         DATALOGGER_DST = settings.paths[TAG_BASE]
+    else:
+        sys.stderr.write('[!] Base directory is missing\n')
+        return
+
+    cwd = os.getcwd()
 
     # Create the manifest
     with open(MANIFEST_NAME,'wt') as fd:
