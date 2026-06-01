@@ -173,22 +173,6 @@ def run(args):
         fd.write('<version>' + str(version) + '</version>\n')
         fd.write('</manifest>\n')
 
-        # FIXME: We need to build the systemctl service file using the
-        # configured paths instead of copying a static version of it...
-        # This is the current service file
-        # [Unit]
-        # Description=Clear Creek Scientific Data Logger
-        # StartLimitIntervalSec=300
-        # StartLimitBurst=5
-        #
-        # [Service]
-        # WorkingDirectory=/opt/ccs/DataLogger
-        # ExecStart=python /opt/ccs/DataLogger/data_logger.py -c /opt/ccs/DataLogger/settings.cfg
-        # Restart=on-failure
-        # RestartSec=10s
-        #
-        # [Install]
-        # WantedBy=default.target
     # Create the systemd service file
     with open(SERVICE_FILE_NAME,'wt') as fd:
         fd.write('[Unit]\n')
@@ -197,7 +181,7 @@ def run(args):
         fd.write('StartLimitBurst=5\n')
         fd.write('[Service]\n')
         fd.write('WorkingDirectory=' + settings.paths[TAG_BASE] + '\n')
-        s = 'ExecStart=python ' + settings.paths[TAG_BASE] + '/data_logger.py -c' + settings.paths[TAG_BASE + '/' + SETTINGS_FILE_NAME + '\n'
+        s = 'ExecStart=python ' + settings.paths[TAG_BASE] + '/data_logger.py -c' + settings.paths[TAG_BASE] + '/' + SETTINGS_FILE_NAME + '\n'
         fd.write(s) 
         fd.write('Restart=on-failure\n')
         fd.write('RestartSec=10s\n')
