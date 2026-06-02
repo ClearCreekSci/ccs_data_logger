@@ -32,7 +32,7 @@ DATALOGGER_DST          = TOPLEVEL_DST + '/DataLogger'
 SYSTEMD_SERVICE_DST     = '/etc/systemd/system'
 UNZIP_DST               = './unzip'
 SETTINGS_FILE_NAME      = 'settings.cfg'
-SERVICE_FILE_NAME       = 'system/ccsdatalogger.service'
+SERVICE_FILE_NAME       = 'ccsdatalogger.service'
 
 class InvalidSettingsFileException(Exception):
     pass
