@@ -135,7 +135,7 @@ def create_base_script(zip_size,settings):
     rv += 'cp -r ' + UNZIP_DST + '/sensormods ' + DATALOGGER_DST + '\n'
     rv += 'cp -r ' + UNZIP_DST + '/ccs_base ' + DATALOGGER_DST + '\n'
     rv += 'cp -r ' + UNZIP_DST + '/ccs_dlconfig ' + DATALOGGER_DST + '\n'
-    rv += 'cp -r ' + UNZIP_DST + 'ccsdatalogger.service ' + SYSTEMD_SERVICE_DST + '\n'
+    rv += 'cp -r ' + UNZIP_DST + SERVICE_FILE_NAME + ' ' + SYSTEMD_SERVICE_DST + '\n'
 
     rv += 'echo "Creating ccsdatalogger systemd service..."\n'
     rv += 'systemctl daemon-reload\n'
@@ -219,7 +219,7 @@ def run(args):
         zf.mkdir('ccs_dlconfig')
         add_glob_to_zip(zf,'../ccs_dlconfig','./ccs_dlconfig','*.py')
         zf.mkdir('system')
-        zf.write('./system/ccsdatalogger.service','system/ccsdatalogger.service')
+        zf.write(SERVICE_FILE_NAME,SERVICE_FILE_NAME)
 
     zip_size = os.path.getsize(zip_name)
 
