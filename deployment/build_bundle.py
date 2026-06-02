@@ -146,8 +146,6 @@ def run(args):
     version = DEFAULT_VERSION
     if None is not args.prefix:
         prefix = args.prefix
-    if None is not args.version:
-        version = args.version
     if None is not args.commit:
         commit = args.commit
     else:
@@ -168,6 +166,9 @@ def run(args):
     else:
         sys.stderr.write('[!] Base directory is missing\n')
         return
+
+    if (settings.version is not None) and (len(settings.version) > 0):
+        version = settings.version
 
     cwd = os.getcwd()
 
@@ -238,6 +239,7 @@ def run(args):
 
 if '__main__' == __name__:
     parser = argparse.ArgumentParser()
+    # We ignore version in this file
     parser.add_argument('-v','--version',help='version string')
     parser.add_argument('-c','--commit',help='commit string')
     parser.add_argument('-p','--prefix',help='prefix string')

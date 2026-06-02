@@ -30,8 +30,19 @@
                 <desc>The name of the sensor, same as the basename of the file implementing the sensor</desc>
 	    </member>
 	    <member>
-               <name>schedule</name>
-               <type>logger:schedule</type>
+                <name>schedule</name>
+                <type>logger:schedule</type>
+                <desc>Configure how often to collect data and how often to switch storage files</desc>
+	    </member>
+        </struct>
+        <struct>
+            <ns>logger</ns>
+	    <name>config</name>
+	    <desc>Configure values specific to the data logger</desc>
+	    <member>
+                <name>version</name>
+		<type>string</type>
+                <desc>User-defined version</desc>
 	    </member>
         </struct>
 	<list>
@@ -58,9 +69,9 @@
             <name>sensors</name>
             <type>logger:sensors</type>
         </object>
-            <object>
-            <name>version</name>
-	    <type>string</type>
+        <object>
+            <name>internal</name>
+	    <type>logger:config</type>
             <defaults>
                 <version>1</version>
             </defaults>
