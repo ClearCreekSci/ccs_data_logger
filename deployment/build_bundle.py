@@ -19,11 +19,13 @@ SCRIPT_SUFFIX           = '.sh'
 SCRIPT_LEN_REPLACE_STR  = '<***>'
 
 TAG_BASE                = 'base'
+TAG_INTERNAL            = 'internal'
 TAG_NAME                = 'name'
 TAG_PATHS               = 'paths'
 TAG_ROOT                = 'ccs-config'
 TAG_SENSOR              = 'sensor'
 TAG_SENSORS             = 'sensors'
+TAG_VERSION             = 'version'
 
 TOPLEVEL_DST            = '/opt/ccs'
 DATALOGGER_DST          = TOPLEVEL_DST + '/DataLogger'
@@ -40,6 +42,7 @@ class Settings(object):
     def __init__(self):
         self.paths = dict()
         self.sensors = list()
+        self.version = None
 
     def read(self,path):
         tree = et.parse(path)
@@ -64,7 +67,12 @@ class Settings(object):
                     else:
                         raise InvalidSettingsFileException('Sensor has no name element in ' + str(path)) 
             else:
-                raise InvalidSettingsFileException('No sensors element in settings file: ' + str(path)) 
+                raise InvalidSettingsFileException('No sensors element in settings file: ' + str(path))
+            internal_node = root.find(TAG_INTERNAL)
+            if None is not internal_node:
+                version_node = internal_node.find(TAG_VERSION)
+                if None is not version_node:
+                    self.version = version_node.text.strip()
         else:
             raise InvalidSettingsFileException(path + ' is not a valid settings file') 
 
@@ -72,6 +80,7 @@ class Settings(object):
         rv = ''
         rv += 'paths: ' + str(self.paths) + '\n'
         rv += 'sensors: ' + str(self.sensors) + '\n'
+        rv += 'version: ' + str(self.version) + '\n'
         return rv
 
 def get_settings(path):
