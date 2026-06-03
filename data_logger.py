@@ -298,7 +298,7 @@ class CcsLogger(object):
             fd.write(s + '\n')
 
     def get_header(self,dataset):
-        s = CCS_UTC_TIMESTAMP_UUID
+        s = ccs_base.CCS_UTC_TIMESTAMP_UUID
         for x in dataset:
             s += ',' + str(x[0])
         return s
