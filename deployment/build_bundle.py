@@ -179,7 +179,16 @@ def run(args):
     if (settings.version is not None) and (len(settings.version) > 0):
         version = settings.version
 
-    cwd = os.getcwd()
+    # See if we are uninstalling...
+    rv += 'if [ $# -ne 0 ]; then\n'
+    rv += '    if [ $1 == "-u" ]; then\n'
+    rv += '        echo "Uninstalling..."\n'
+    rv += '        systemctl stop ' + SERVICE_FILE_NAME + '\n'
+    rv += '        systemctl disable ' + SERVICE_FILE_NAME + '\n'
+    rv += '        rm ' + SYSTEMD_SERVICE_DST + '/' + SERVICE_FILE_NAME + '\n'
+    rv += '        rm -rf ' + DATALOGGER_DST + '\n'
+    rv += '        exit\n'
+    rv += 'fi\n'
 
     # Create the manifest
     with open(MANIFEST_NAME,'wt') as fd:
@@ -241,7 +250,10 @@ def run(args):
         fd.write(script)
         with open(zip_name,'rb') as zfd:
             zip_buf = zfd.read()
-        fd.write(zip_buf) 
+        fd.write(zip_buf)
+    os.chmod(install_script_name,stat.S_IRWXU|stat.S_IRGRP|stat.S_IRGRP|stat.S_IROTH)
+
+    cwd = os.getcwd()
     script_path = os.path.join(cwd,install_script_name)
     sys.stdout.write(script_path)
     
