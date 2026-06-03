@@ -112,6 +112,18 @@ def create_base_script(zip_size,settings):
     rv += '    echo "Please run this install script as root"\n'
     rv += '    exit\n'
     rv += 'fi\n'
+
+    # See if we are uninstalling...
+    rv += 'if [ $# -ne 0 ]; then\n'
+    rv += '    if [ $1 == "-u" ]; then\n'
+    rv += '        echo "Uninstalling..."\n'
+    rv += '        systemctl stop ' + SERVICE_FILE_NAME + '\n'
+    rv += '        systemctl disable ' + SERVICE_FILE_NAME + '\n'
+    rv += '        rm ' + SYSTEMD_SERVICE_DST + '/' + SERVICE_FILE_NAME + '\n'
+    rv += '        rm -rf ' + DATALOGGER_DST + '\n'
+    rv += '        exit\n'
+    rv += 'fi\n'
+
     rv += '# Make sure I2C is turned on...\n'
     rv += 'echo "Enabling I2C..."\n'
     rv += 'raspi-config nonint do_i2c 0\n'
@@ -178,17 +190,6 @@ def run(args):
 
     if (settings.version is not None) and (len(settings.version) > 0):
         version = settings.version
-
-    # See if we are uninstalling...
-    rv += 'if [ $# -ne 0 ]; then\n'
-    rv += '    if [ $1 == "-u" ]; then\n'
-    rv += '        echo "Uninstalling..."\n'
-    rv += '        systemctl stop ' + SERVICE_FILE_NAME + '\n'
-    rv += '        systemctl disable ' + SERVICE_FILE_NAME + '\n'
-    rv += '        rm ' + SYSTEMD_SERVICE_DST + '/' + SERVICE_FILE_NAME + '\n'
-    rv += '        rm -rf ' + DATALOGGER_DST + '\n'
-    rv += '        exit\n'
-    rv += 'fi\n'
 
     # Create the manifest
     with open(MANIFEST_NAME,'wt') as fd:
