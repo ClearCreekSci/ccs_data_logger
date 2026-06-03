@@ -150,7 +150,7 @@ def create_base_script(zip_size,settings):
     rv += 'cp -r ' + UNZIP_DST + '/sensormods ' + DATALOGGER_DST + '\n'
     rv += 'cp -r ' + UNZIP_DST + '/ccs_base ' + DATALOGGER_DST + '\n'
     rv += 'cp -r ' + UNZIP_DST + '/ccs_dlconfig ' + DATALOGGER_DST + '\n'
-    rv += 'cp -r ' + UNZIP_DST + SERVICE_FILE_NAME + ' ' + SYSTEMD_SERVICE_DST + '\n'
+    rv += 'cp -r ' + UNZIP_DST + '/' + SERVICE_FILE_NAME + ' ' + SYSTEMD_SERVICE_DST + '\n'
 
     rv += 'echo "Creating ccsdatalogger systemd service..."\n'
     rv += 'systemctl daemon-reload\n'
