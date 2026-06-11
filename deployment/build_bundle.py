@@ -155,8 +155,8 @@ def create_base_script(zip_size,settings):
         # Extract the zip file from the install script
     rv += 'dd bs=1 if="$ME" of=script.zip skip=' + SCRIPT_LEN_REPLACE_STR + ' count=' + str(zip_size) + '\n'
     rv += 'echo "Extracting files..."\n'
-    rv += 'rm -rf ${UNZIP_DST}\n'
-    rv += 'mkdir ${UNZIP_DST}\n'
+    rv += 'rm -rf ' + UNZIP_DST + '\n'
+    rv += 'mkdir ' + UNZIP_DST + '\n'
     rv += 'unzip -q -d ' + UNZIP_DST + ' script.zip\n'
     rv += '# Setup up the data logger files...\n'
 
