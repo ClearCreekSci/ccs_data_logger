@@ -151,7 +151,6 @@ def create_base_script(zip_size,settings):
     rv += 'echo "Enabling I2C..."\n'
     rv += 'raspi-config nonint do_i2c 0\n'
     rv += 'ME=$(basename "$0")\n'
-    rv += 'mkdir ' + UNZIP_DST + '\n'
         # Extract the zip file from the install script
     rv += 'dd bs=1 if="$ME" of=script.zip skip=' + SCRIPT_LEN_REPLACE_STR + ' count=' + str(zip_size) + '\n'
     rv += 'echo "Extracting files..."\n'
