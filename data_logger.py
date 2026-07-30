@@ -24,7 +24,7 @@ import argparse
 import logging
 import time
 from importlib import import_module
-import datetime
+import datetime as dt
 
 from ccs_dlconfig import config
 from ccs_dlconfig import interpret_boolean_value
@@ -77,7 +77,7 @@ def logmsg(tag,msg,level=0):
     if hasattr(g_config,'log_path') and None is not g_config.log_path:
         if (level == 0 and g_info_count <= MAX_REPORTED_INFO_MSGS) or (g_error_count <= MAX_REPORTED_ERRORS):
             with open(g_config.log_path,'a') as fd:
-                ts = datetime.datetime.now(datetime.UTC)
+                ts = dt.datetime.now(dt.UTC)
                 s = ts.strftime('%Y-%m-%d %H:%M:%S ') + '[' + tag + '] ' + msg + '\n'
                 fd.write(s)
                 if level != 0 and (g_error_count == MAX_REPORTED_ERRORS):
@@ -97,6 +97,8 @@ class CollectionEvent(object):
         self.path = None
         self.ticks = 0
         self.header_written = False
+        self.start_time = None
+        self.run_time = None
 
     def __str__(self):
         rv = ''
@@ -141,7 +143,7 @@ class LoggerSettings(config.Settings):
     def read(self,path):
         super().read(path)
         if None is not self.log_dir:
-            ts = datetime.datetime.now(datetime.UTC)
+            ts = dt.datetime.now(dt.UTC)
             name = ts.strftime('%Y%m%d%H%M%S') + LOG_SUFFIX
             self.log_path = os.path.join(g_config.log_dir,name)
         else:
@@ -275,12 +277,19 @@ class CcsLogger(object):
                         logmsg(NAME,'Failed to load power module (' + f + '): ' + str(ex),ERROR_MSG)
 
     def collect(self,event):
+        timestamp = dt.datetime.now(dt.UTC)
         event.settings[0].rollover_count += 1
-        if (event.path == None) or (event.settings[0].rollover_count >= event.settings[0].rollover_max):
+        # Get the runtime in seconds
+        event.run_time = event.settings[0].rollover_max * event_settings[0].period * 60
+        # 10 years is a ridiculous amount of time to be paused...
+        time_diff = dt.timedelta(seconds=3600*24*365*10)
+        if None is not event.start_time:
+            time_diff = timestamp - event.start_time
+        if (event.path == None) or (event.settings[0].rollover_count >= event.settings[0].rollover_max) or (time_diff.seconds > event.run_time) or ((None is not event.path) and (False == os.path.exists(event.path))):
+            event.start_time = timestamp
             event.path = self.get_collect_file_path(event)
             event.settings[0].rollover_count = 0
 
-        timestamp = datetime.datetime.now(datetime.UTC)
         s = timestamp.strftime('%Y%m%d %H:%M:%S')
         event.header_written = True
         with open(event.path,'a') as fd:
@@ -306,7 +315,7 @@ class CcsLogger(object):
 
     def get_collect_file_path(self,event):
         global g_config
-        ts = datetime.datetime.now(datetime.UTC)
+        ts = dt.datetime.now(dt.UTC)
         period = '_p' + str(event.settings[0].period) + '_r' + str(event.settings[0].rollover_max)
         name = ts.strftime('%Y%m%d_%H%M%S') + period + COLLECT_SUFFIX
         return os.path.join(g_config.csv_dir,name)
