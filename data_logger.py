@@ -280,7 +280,7 @@ class CcsLogger(object):
         timestamp = dt.datetime.now(dt.UTC)
         event.settings[0].rollover_count += 1
         # Get the runtime in seconds
-        event.run_time = event.settings[0].rollover_max * event_settings[0].period * 60
+        event.run_time = event.settings[0].rollover_max * event.settings[0].period * 60
         # 10 years is a ridiculous amount of time to be paused...
         time_diff = dt.timedelta(seconds=3600*24*365*10)
         if None is not event.start_time:
