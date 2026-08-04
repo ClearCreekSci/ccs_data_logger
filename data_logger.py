@@ -252,7 +252,7 @@ class CcsLogger(object):
 
                             mf = manifest.Manifest()
                             mf_path = os.path.join(SENSOR_MODULE_DIR,MANIFESTS_DIR)
-                            if os.path.exists(mf):
+                            if os.path.exists(mf_path):
                                 mf_path = os.path.join(mf_path,f + MANIFEST_SUFFIX)
                                 mf.read(mf_path)
                             if (None is not mf.commit) and (len(mf.commit) > 0):
@@ -391,16 +391,15 @@ def run(args):
 #            g_done = True
 #            return
 
-    data_logger = CcsLogger()
-    total_count = 0
-
     mf = manifest.Manifest()
     base_path = os.path.dirname(args.config)
     mf_path = os.path.join(base_path,MANIFEST_FILE)
     if os.path.exists(mf_path):
         mf.read(mf_path)
-        s = 'Found manifest, commit is ' + str(mf.commit)
+        s = 'Found manifest, logger commit is ' + str(mf.commit)
         logmsg(NAME,s,ERROR_MSG)
+
+    data_logger = CcsLogger()
 
     create_schedule(g_config,data_logger)
 
