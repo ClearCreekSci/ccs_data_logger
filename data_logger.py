@@ -28,12 +28,16 @@ import datetime as dt
 
 from ccs_dlconfig import config
 from ccs_dlconfig import interpret_boolean_value
+from ccs_dlconfig import manifest 
 
 import xml.etree.ElementTree as et
 
 NAME                                = 'data_logger'
 SENSOR_MODULE_DIR                   = 'sensormods'
 POWER_MODULE_DIR                    = 'powermods'
+MANIFEST_FILE                       = 'manifest.xml'
+MANIFEST_SUFFIX                     = '-manifest.xml'
+MANIFESTS_DIR                       = 'manifests'
 
 # For the default period of 30 minutes between events, collecting 48 events gives
 # a one day default file rollover...
@@ -49,7 +53,6 @@ TAG_MODULE_CONFIG     = 'module-config'
 TAG_NAME              = 'name'
 TAG_SENSOR            = 'sensor'
 TAG_SENSORS           = 'sensors'
-# FIXME: Change this to "module-config"
 TAG_SENSOR_CONFIG     = 'sensor-config'
 TAG_POWER_MODULE      = 'power-module'
 TAG_POWER_MODULES     = 'power-modules'
@@ -227,6 +230,9 @@ class CcsLogger(object):
             os.mkdir(SENSOR_MODULE_DIR,mode=0o755)
         files = os.listdir(SENSOR_MODULE_DIR)
         for f in files:
+            fullpath = os.path.join(SENSOR_MODULE_DIR,f)
+            if os.path.isdir(fullpath):
+                continue
             if f.endswith('.py'):
                 if '__init__.py' != f:
                     f = f[:-3]
@@ -243,11 +249,20 @@ class CcsLogger(object):
                                 if hasattr(obj,'set_config'):
                                     obj.set_config(sensor_settings.config)
                             self.sensors.append(obj)
-                            logmsg(NAME,'Loaded sensor module: ' + f,INFO_MSG)
+
+                            mf = manifest.Manifest()
+                            mf_path = os.path.join(SENSOR_MODULE_DIR,MANIFESTS_DIR)
+                            if os.path.exists(mf):
+                                mf_path = os.path.join(mf_path,f + MANIFEST_SUFFIX)
+                                mf.read(mf_path)
+                            if (None is not mf.commit) and (len(mf.commit) > 0):
+                                logmsg(NAME,'Loaded sensor module: ' + f + ' [commit: ' + str(mf.commit) + ']',INFO_MSG)
+                            else:
+                                logmsg(NAME,'Loaded sensor module: ' + f,INFO_MSG)
                         else:
                             logmsg(NAME,'Sensor module has no load function: ' + f,ERROR_MSG)
                     except Exception as ex:
-                        logmsg(NAME,'Failed to load sensor module (' + f + '): ' + str(ex),ERROR_MSG)
+                        logmsg(NAME,'Failed to load sensor module ' + f + ': ' + str(ex),ERROR_MSG)
 
     def load_power_modules(self):
         if False == os.path.exists(POWER_MODULE_DIR):
@@ -378,6 +393,14 @@ def run(args):
 
     data_logger = CcsLogger()
     total_count = 0
+
+    mf = manifest.Manifest()
+    base_path = os.path.dirname(args.config)
+    mf_path = os.path.join(base_path,MANIFEST_FILE)
+    if os.path.exists(mf_path):
+        mf.read(mf_path)
+        s = 'Found manifest, commit is ' + str(mf.commit)
+        logmsg(NAME,s,ERROR_MSG)
 
     create_schedule(g_config,data_logger)
 

@@ -213,13 +213,15 @@ def run(args):
     if (settings.version is not None) and (len(settings.version) > 0):
         version = settings.version
 
-    # Create the manifest
+    # Create the logger manifest
     with open(MANIFEST_NAME,'wt') as fd:
+        fd.write('<?xml version="1.0" encoding="UTF-8"?>' + '\n'
         fd.write('<manifest>\n')
         current_time = dt.datetime.now(dt.timezone.utc).isoformat(timespec='minutes')
         fd.write('<time>' + current_time + '</time>\n')
         fd.write('<commit>' + commit + '</commit>\n')
         fd.write('<version>' + str(version) + '</version>\n')
+        fd.write('<name>logger</name>\n')
         fd.write('</manifest>\n')
 
     # Create the systemd service file
@@ -244,6 +246,7 @@ def run(args):
         zf.write('settings.cfg','settings.cfg')
         zf.write('manifest.xml','manifest.xml')
         zf.write('../data_logger.py','data_logger.py')
+        add_glob_to_zip(zf,'../sensormods/manifests','sensormods/manifests','*.xml')
         add_glob_to_zip(zf,'../sensormods','sensormods','*.py')
         add_glob_to_zip(zf,'../ccs_base','ccs_base','*.py')
         add_glob_to_zip(zf,'../ccs_dlconfig','ccs_dlconfig','*.py')
