@@ -215,7 +215,7 @@ def run(args):
 
     # Create the logger manifest
     with open(MANIFEST_NAME,'wt') as fd:
-        fd.write('<?xml version="1.0" encoding="UTF-8"?>' + '\n'
+        fd.write('<?xml version="1.0" encoding="UTF-8"?>' + '\n')
         fd.write('<manifest>\n')
         current_time = dt.datetime.now(dt.timezone.utc).isoformat(timespec='minutes')
         fd.write('<time>' + current_time + '</time>\n')
